@@ -1,0 +1,86 @@
+/* Custom styles for Space Rider Game */
+
+:root {
+  --neon-cyan: #06b6d4;
+  --neon-purple: #a855f7;
+  --neon-rose: #f43f5e;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #03030d;
+}
+
+/* CRT Scanlines Overlay */
+.scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.3) 50%
+  );
+  background-size: 100% 4px;
+}
+
+/* Glow animation for neon texts */
+@keyframes textGlow {
+  0%, 100% {
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.6),
+                 0 0 20px rgba(168, 85, 247, 0.4),
+                 0 0 30px rgba(244, 63, 94, 0.2);
+  }
+  50% {
+    text-shadow: 0 0 15px rgba(6, 182, 212, 0.8),
+                 0 0 30px rgba(168, 85, 247, 0.6),
+                 0 0 45px rgba(244, 63, 94, 0.4);
+  }
+}
+
+.animate-glow {
+  animation: textGlow 3s infinite ease-in-out;
+}
+
+/* Custom Scrollbar for top score leaderboard list */
+#leaderboard-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+#leaderboard-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+#leaderboard-container::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.4);
+  border-radius: 4px;
+}
+
+#leaderboard-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.7);
+}
+
+/* Canvas styling: Ensure crisp rendering */
+canvas {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  outline: none;
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.15);
+  border-left: 1px solid rgba(6, 182, 212, 0.1);
+  border-right: 1px solid rgba(6, 182, 212, 0.1);
+}
+
+/* Glassmorphic overlay cards */
+.glass-panel {
+  background: rgba(10, 10, 25, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+/* Selection disable styling */
+.select-none {
+  user-select: none;
+  -webkit-user-select: none;
+}
