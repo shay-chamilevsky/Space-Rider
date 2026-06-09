@@ -1257,6 +1257,9 @@ document.getElementById('btn-play-again').addEventListener('click', startGame);
 document.getElementById('btn-return-menu').addEventListener('click', () => {
   currentState = STATES.MENU;
   document.getElementById('gameover-overlay').classList.add('hidden');
+  // Ensure hangar tab is hidden and main menu tab is shown
+  document.getElementById('view-hangar').classList.add('hidden');
+  document.getElementById('view-main').classList.remove('hidden');
   document.getElementById('menu-overlay').classList.remove('hidden');
   updateLeaderboardUI();
   syncBalancesUI();
@@ -1381,9 +1384,14 @@ function openShopModal(source) {
   
   renderHangarShop();
   
-  document.getElementById('menu-overlay').classList.add('hidden');
+  // Tab switching inside menu-overlay: hide main view, show hangar view
+  document.getElementById('view-main').classList.add('hidden');
+  document.getElementById('view-hangar').classList.remove('hidden');
+  
+  // Ensure menu-overlay is visible
+  document.getElementById('menu-overlay').classList.remove('hidden');
+  // Hide gameover-overlay in case we came from game over
   document.getElementById('gameover-overlay').classList.add('hidden');
-  document.getElementById('shop-modal').classList.remove('hidden');
   
   // Start shop loop
   lastShopTime = performance.now();
@@ -1391,23 +1399,31 @@ function openShopModal(source) {
   shopAnimationId = requestAnimationFrame(shopLoop);
 }
 
-function closeShopModal() {
-  document.getElementById('shop-modal').classList.add('hidden');
+// Semantic alias per spec
+function openHangarShop(source) {
+  openShopModal(source);
+}
+
+function closeHangarShop() {
   if (shopAnimationId) {
     cancelAnimationFrame(shopAnimationId);
     shopAnimationId = null;
   }
   
   if (shopOriginSource === 'gameover') {
+    // Hide menu-overlay completely and reveal gameover-overlay
+    document.getElementById('menu-overlay').classList.add('hidden');
     document.getElementById('gameover-overlay').classList.remove('hidden');
-  } else {
-    document.getElementById('menu-overlay').classList.remove('hidden');
+  } else if (shopOriginSource === 'menu') {
+    // Switch tabs back to main view inside menu-overlay
+    document.getElementById('view-hangar').classList.add('hidden');
+    document.getElementById('view-main').classList.remove('hidden');
     syncBalancesUI();
   }
 }
 
 function shopLoop(timestamp) {
-  if (document.getElementById('shop-modal').classList.contains('hidden')) {
+  if (document.getElementById('view-hangar').classList.contains('hidden')) {
     shopAnimationId = null;
     return;
   }
@@ -2094,7 +2110,7 @@ function updateLaserHUD() {
 
 // --- Click & Touch Event Listeners ---
 document.getElementById('btn-open-shop-menu').addEventListener('click', () => {
-  openShopModal('menu');
+  openHangarShop('menu');
 });
 
 document.getElementById('btn-open-shop-gameover').addEventListener('click', () => {
@@ -2102,7 +2118,7 @@ document.getElementById('btn-open-shop-gameover').addEventListener('click', () =
 });
 
 document.getElementById('btn-close-shop').addEventListener('click', () => {
-  closeShopModal();
+  closeHangarShop();
 });
 
 document.getElementById('btn-shop-prev').addEventListener('click', () => {
