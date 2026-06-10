@@ -85,30 +85,55 @@ canvas {
   -webkit-user-select: none;
 }
 
-/* Custom Scrollbar for hangar and any .custom-scrollbar container */
-/* Firefox */
+/* Firefox scrollbar fallback */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(168, 85, 247, 0.4) rgba(10, 10, 25, 0.6);
+  scrollbar-color: rgba(168, 85, 247, 0.45) rgba(255, 255, 255, 0.02);
 }
 
 /* Webkit (Chrome, Safari, Edge) */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(10, 10, 25, 0.6);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.4);
-  border-radius: 10px;
-  border: 1px solid rgba(168, 85, 247, 0.15);
+  background: rgba(168, 85, 247, 0.45);
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.75);
-  box-shadow: 0 0 6px rgba(168, 85, 247, 0.6);
+  background: rgba(168, 85, 247, 0.8);
 }
+
+/* Responsive typography scaling for desktop screens */
+@media (min-width: 768px) {
+  #view-main, #view-hangar {
+    font-size: 1.05rem;
+  }
+}
+@media (min-width: 1024px) {
+  #view-main, #view-hangar {
+    font-size: 1.15rem;
+  }
+}
+
+/* Neon Pulse Animation for gameplay fire pad */
+@keyframes padPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.2), inset 0 0 5px rgba(244, 63, 94, 0.1);
+    border-color: rgba(244, 63, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(244, 63, 94, 0.6), inset 0 0 15px rgba(244, 63, 94, 0.3);
+    border-color: rgba(244, 63, 94, 0.8);
+  }
+}
+.animate-pad-pulse {
+  animation: padPulse 1.5s infinite ease-in-out;
+}
+

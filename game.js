@@ -124,7 +124,9 @@ let coinSpawnTimer = 0;
 const COIN_SPAWN_INTERVAL = 1.0;
 
 // Laser variables
+let laserReady = true;
 let laserCooldownTimer = 0;
+const LASER_COOLDOWN_DURATION = 3.0;
 let activeLaserDrawTimer = 0;
 let laserBeamX = 0;
 let laserBeamY = 0;
@@ -251,7 +253,7 @@ window.addEventListener('keydown', (e) => {
       triggerJump();
     }
     if (e.code === 'KeyF' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      triggerLaser();
+      fireLaser();
     }
     if (e.code === 'Escape') {
       togglePause();
@@ -1005,11 +1007,14 @@ function update(dt) {
     activeLaserDrawTimer -= dt;
   }
 
-  if (laserCooldownTimer > 0) {
+  if (!laserReady) {
     laserCooldownTimer -= dt;
-    if (laserCooldownTimer < 0) laserCooldownTimer = 0;
-    updateLaserHUD();
+    if (laserCooldownTimer <= 0) {
+      laserReady = true;
+      laserCooldownTimer = 0;
+    }
   }
+  updateLaserUI();
 
   if (aegisAbsorbTimer > 0) {
     aegisAbsorbTimer -= dt;
@@ -1183,13 +1188,14 @@ function startGame() {
   player.jumpHeight = 0;
   isInvulnerable = false;
   invulnerableTimer = 0;
+  laserReady = true;
   laserCooldownTimer = 0;
   activeLaserDrawTimer = 0;
   aegisAbsorbTimer = 0;
 
   initStarfield();
   updateLivesUI();
-  updateLaserHUD();
+  updateLaserUI();
 
   // Handle Overlay UIs Visibility
   document.getElementById('menu-overlay').classList.add('hidden');
@@ -1216,7 +1222,7 @@ function endGame() {
 
   // Verify and process leaderboard checks
   checkAndProcessHighScore(Math.floor(score));
-  updateLaserHUD();
+  updateLaserUI();
   syncBalancesUI();
 }
 
@@ -1225,10 +1231,17 @@ function togglePause() {
     currentState = STATES.PAUSED;
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     document.getElementById('pause-overlay').classList.remove('hidden');
+    
+    const pad = document.getElementById('mobile-fire-pad');
+    if (pad) pad.classList.add('hidden');
   } else if (currentState === STATES.PAUSED) {
     currentState = STATES.PLAYING;
     lastTime = performance.now();
     document.getElementById('pause-overlay').classList.add('hidden');
+    
+    const pad = document.getElementById('mobile-fire-pad');
+    if (pad && equippedShip === 'laser') pad.classList.remove('hidden');
+    
     animationFrameId = requestAnimationFrame(gameLoop);
   }
 }
@@ -1248,6 +1261,10 @@ document.getElementById('btn-quit').addEventListener('click', () => {
   document.getElementById('pause-overlay').classList.add('hidden');
   document.getElementById('hud-overlay').classList.add('hidden');
   document.getElementById('menu-overlay').classList.remove('hidden');
+  
+  const pad = document.getElementById('mobile-fire-pad');
+  if (pad) pad.classList.add('hidden');
+  
   updateLeaderboardUI();
   syncBalancesUI();
 });
@@ -1261,6 +1278,10 @@ document.getElementById('btn-return-menu').addEventListener('click', () => {
   document.getElementById('view-hangar').classList.add('hidden');
   document.getElementById('view-main').classList.remove('hidden');
   document.getElementById('menu-overlay').classList.remove('hidden');
+  
+  const pad = document.getElementById('mobile-fire-pad');
+  if (pad) pad.classList.add('hidden');
+  
   updateLeaderboardUI();
   syncBalancesUI();
 });
@@ -1374,7 +1395,8 @@ function collectCoin(coin) {
   coins = coins.filter(c => c !== coin);
 }
 
-function openShopModal(source) {
+// Semantic openHangarShop per spec
+function openHangarShop(source) {
   shopOriginSource = source;
   syncBalancesUI();
   
@@ -1399,11 +1421,6 @@ function openShopModal(source) {
   shopAnimationId = requestAnimationFrame(shopLoop);
 }
 
-// Semantic alias per spec
-function openHangarShop(source) {
-  openShopModal(source);
-}
-
 function closeHangarShop() {
   if (shopAnimationId) {
     cancelAnimationFrame(shopAnimationId);
@@ -1412,9 +1429,10 @@ function closeHangarShop() {
   
   if (shopOriginSource === 'gameover') {
     // Hide menu-overlay completely and reveal gameover-overlay
+    document.getElementById('view-hangar').classList.add('hidden');
     document.getElementById('menu-overlay').classList.add('hidden');
     document.getElementById('gameover-overlay').classList.remove('hidden');
-  } else if (shopOriginSource === 'menu') {
+  } else {
     // Switch tabs back to main view inside menu-overlay
     document.getElementById('view-hangar').classList.add('hidden');
     document.getElementById('view-main').classList.remove('hidden');
@@ -1705,26 +1723,26 @@ function renderHangarShop(skipCanvasInit = false) {
   else if (shipId === 'aegis') { abilityName = 'Aegis Shield'; abilityDesc = '50% Absorb + Extra Life'; }
 
   // 4. Construct labels and MAX tags
-  const speedLabel = `Speed: ${config.speedMultiplier}x ${
+  const speedLabel = `<span class="font-bold text-white uppercase tracking-wider">Speed:</span> ${config.speedMultiplier}x ${
     engineLevel > 1 
       ? `<span class="text-cyan-400 font-bold ml-1">(+${speedBonus.toFixed(2)}x)</span>` 
       : ''
   }`;
   const speedMaxTag = engineLevel === 5 ? `<span class="text-yellow-400 font-bold ml-2">MAX</span>` : '';
 
-  const shieldLabel = `Shield: ${(config.shieldHardening * 100)}% ${
+  const shieldLabel = `<span class="font-bold text-white uppercase tracking-wider">Shield:</span> ${(config.shieldHardening * 100)}% ${
     shieldLevel > 1 
       ? `<span class="text-cyan-400 font-bold ml-1">(+${(shieldBonus * 100).toFixed(0)}%)</span>` 
       : ''
   }`;
   const shieldMaxTag = shieldLevel === 5 ? `<span class="text-yellow-400 font-bold ml-2">MAX</span>` : '';
 
-  let abilityLabel = `Ability: ${abilityName}`;
+  let abilityLabel = `<span class="font-bold text-white uppercase tracking-wider">Ability:</span> ${abilityName}`;
   let abilityMaxTag = '';
 
   if (shipId === 'laser') {
     const dynamicCooldown = Math.max(4.0, 8.0 - (shieldLevel - 1) * 1.0);
-    abilityLabel = `Laser Cannon (CD: ${dynamicCooldown.toFixed(0)}s) ${
+    abilityLabel = `<span class="font-bold text-white uppercase tracking-wider">Laser Cannon:</span> (CD: ${dynamicCooldown.toFixed(0)}s) ${
       shieldLevel > 1 
         ? `<span class="text-cyan-400 font-bold ml-1">(-${(shieldLevel - 1)}s)</span>` 
         : ''
@@ -1732,7 +1750,7 @@ function renderHangarShop(skipCanvasInit = false) {
     abilityMaxTag = shieldLevel === 5 ? `<span class="text-yellow-400 font-bold ml-2">MAX</span>` : '';
   } else if (shipId === 'magnet') {
     const dynamicRadius = 150 + (shieldLevel - 1) * 50;
-    abilityLabel = `Coin Magnet (Radius: ${dynamicRadius}px) ${
+    abilityLabel = `<span class="font-bold text-white uppercase tracking-wider">Coin Magnet:</span> (Radius: ${dynamicRadius}px) ${
       shieldLevel > 1 
         ? `<span class="text-cyan-400 font-bold ml-1">(+${(shieldLevel - 1) * 50}px)</span>` 
         : ''
@@ -1740,7 +1758,7 @@ function renderHangarShop(skipCanvasInit = false) {
     abilityMaxTag = shieldLevel === 5 ? `<span class="text-yellow-400 font-bold ml-2">MAX</span>` : '';
   } else if (shipId === 'aegis') {
     const dynamicRecycle = engineLevel * 10;
-    abilityLabel = `Scrap Recycler (Recycle: ${dynamicRecycle}%) ${
+    abilityLabel = `<span class="font-bold text-white uppercase tracking-wider">Scrap Recycler:</span> (Recycle: ${dynamicRecycle}%) ${
       engineLevel > 1 
         ? `<span class="text-cyan-400 font-bold ml-1">(+${(engineLevel - 1) * 10}%)</span>` 
         : ''
@@ -1757,13 +1775,13 @@ function renderHangarShop(skipCanvasInit = false) {
   let actionButtonHTML = '';
   if (isActive) {
     actionButtonHTML = `
-      <button class="w-24 h-8 flex items-center justify-center bg-cyan-500 text-black font-mono font-bold text-xs uppercase rounded-lg border border-cyan-400 cursor-default shadow-[0_0_12px_rgba(6,182,212,0.4)] truncate px-1" disabled>
+      <button class="w-28 h-9 flex items-center justify-center bg-cyan-500 text-black font-mono font-bold text-xs md:text-sm uppercase rounded-lg border border-cyan-400 cursor-default shadow-[0_0_12px_rgba(6,182,212,0.4)] truncate px-1" disabled>
         Active
       </button>
     `;
   } else if (isOwned) {
     actionButtonHTML = `
-      <button onclick="equipShip('${shipId}')" class="w-24 h-8 flex items-center justify-center bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-xs uppercase rounded-lg transition-all active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.3)] truncate px-1">
+      <button onclick="equipShip('${shipId}')" class="w-28 h-9 flex items-center justify-center bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-xs md:text-sm uppercase rounded-lg transition-all active:scale-95 shadow-[0_0_10px_rgba(168,85,247,0.3)] truncate px-1">
         Equip
       </button>
     `;
@@ -1774,7 +1792,7 @@ function renderHangarShop(skipCanvasInit = false) {
       : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700/30';
     const disabledAttr = canAfford ? '' : 'disabled';
     actionButtonHTML = `
-      <button onclick="buyShip('${shipId}')" class="w-24 h-8 flex items-center justify-center font-mono font-bold text-xs uppercase rounded-lg transition-all active:scale-95 truncate px-1 ${btnClass}" ${disabledAttr}>
+      <button onclick="buyShip('${shipId}')" class="w-28 h-9 flex items-center justify-center font-mono font-bold text-xs md:text-sm uppercase rounded-lg transition-all active:scale-95 truncate px-1 ${btnClass}" ${disabledAttr}>
         Buy ${price}
       </button>
     `;
@@ -1823,13 +1841,13 @@ function renderHangarShop(skipCanvasInit = false) {
   let engineBtnHTML = '';
   if (!isOwned) {
     engineBtnHTML = `
-      <button id="btn-upgrade-engine" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-gray-500 bg-gray-800/40 border border-gray-700/30 rounded-lg text-xs font-mono font-bold uppercase cursor-not-allowed truncate" disabled>
+      <button id="btn-upgrade-engine" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-gray-500 bg-gray-800/40 border border-gray-700/30 rounded-lg text-xs md:text-sm font-mono font-bold uppercase cursor-not-allowed truncate" disabled>
         Locked
       </button>
     `;
   } else if (engineLevel >= 5) {
     engineBtnHTML = `
-      <button id="btn-upgrade-engine" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-cyan-400 bg-cyan-950/20 border border-cyan-500/30 rounded-lg text-xs font-mono font-bold uppercase cursor-default truncate" disabled>
+      <button id="btn-upgrade-engine" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-cyan-400 bg-cyan-950/20 border border-cyan-500/30 rounded-lg text-xs md:text-sm font-mono font-bold uppercase cursor-default truncate" disabled>
         MAXED
       </button>
     `;
@@ -1840,7 +1858,7 @@ function renderHangarShop(skipCanvasInit = false) {
       : 'text-gray-500 bg-gray-800/40 border border-gray-700/30 cursor-not-allowed';
     const disabledAttr = canAfford ? '' : 'disabled';
     engineBtnHTML = `
-      <button id="btn-upgrade-engine" onclick="buyUpgrade('${shipId}', 'engine')" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center border rounded-lg text-xs font-mono font-bold uppercase transition-all active:scale-95 truncate ${btnClass}" ${disabledAttr}>
+      <button id="btn-upgrade-engine" onclick="buyUpgrade('${shipId}', 'engine')" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center border rounded-lg text-xs md:text-sm font-mono font-bold uppercase transition-all active:scale-95 truncate ${btnClass}" ${disabledAttr}>
         Upgrade [${engineCost}]
       </button>
     `;
@@ -1849,13 +1867,13 @@ function renderHangarShop(skipCanvasInit = false) {
   let shieldBtnHTML = '';
   if (!isOwned) {
     shieldBtnHTML = `
-      <button id="btn-upgrade-shield" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-gray-500 bg-gray-800/40 border border-gray-700/30 rounded-lg text-xs font-mono font-bold uppercase cursor-not-allowed truncate" disabled>
+      <button id="btn-upgrade-shield" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-gray-500 bg-gray-800/40 border border-gray-700/30 rounded-lg text-xs md:text-sm font-mono font-bold uppercase cursor-not-allowed truncate" disabled>
         Locked
       </button>
     `;
   } else if (shieldLevel >= 5) {
     shieldBtnHTML = `
-      <button id="btn-upgrade-shield" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-rose-400 bg-rose-950/20 border border-rose-500/30 rounded-lg text-xs font-mono font-bold uppercase cursor-default truncate" disabled>
+      <button id="btn-upgrade-shield" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center text-rose-400 bg-rose-950/20 border border-rose-500/30 rounded-lg text-xs md:text-sm font-mono font-bold uppercase cursor-default truncate" disabled>
         MAXED
       </button>
     `;
@@ -1866,91 +1884,96 @@ function renderHangarShop(skipCanvasInit = false) {
       : 'text-gray-500 bg-gray-800/40 border border-gray-700/30 cursor-not-allowed';
     const disabledAttr = canAfford ? '' : 'disabled';
     shieldBtnHTML = `
-      <button id="btn-upgrade-shield" onclick="buyUpgrade('${shipId}', 'shield')" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center border rounded-lg text-xs font-mono font-bold uppercase transition-all active:scale-95 truncate ${btnClass}" ${disabledAttr}>
+      <button id="btn-upgrade-shield" onclick="buyUpgrade('${shipId}', 'shield')" class="w-full max-w-[140px] px-2 h-9 flex items-center justify-center border rounded-lg text-xs md:text-sm font-mono font-bold uppercase transition-all active:scale-95 truncate ${btnClass}" ${disabledAttr}>
         Upgrade [${shieldCost}]
       </button>
     `;
   }
 
   const upgradesUIHTML = `
-    <div class="mt-2 border-t border-purple-500/20 pt-2 flex flex-col gap-2">
-      <h5 class="text-xs md:text-sm font-bold text-center tracking-wider text-purple-400 uppercase">Upgrades & Tuning</h5>
-      
-      <!-- Engine Tuning -->
-      <div class="flex flex-wrap md:flex-nowrap items-center justify-between gap-1.5 py-1 w-full">
-        <div class="flex-1 min-w-[100px] flex flex-col text-left">
-          <span class="text-xs md:text-sm font-bold text-gray-200 truncate">${engineTitle}</span>
-          <span class="text-[9px] md:text-[11px] text-gray-400 font-mono truncate">${engineSub}</span>
-        </div>
-        <div class="flex items-center gap-1.5 flex-wrap flex-1 justify-end">
-          <div class="flex gap-1 flex-shrink-0">
-            ${engineTiersHTML}
+    <div class="mt-2 border-t border-purple-500/20 pt-2 flex flex-col min-h-0 flex-1">
+      <!-- Scrolling area for upgrades -->
+      <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2">
+        <h5 class="text-sm md:text-base font-black text-center tracking-wider text-purple-400 uppercase mb-1">Upgrades & Tuning</h5>
+        
+        <!-- Engine Tuning -->
+        <div class="flex flex-wrap md:flex-nowrap items-center justify-between gap-1.5 py-1 w-full">
+          <div class="flex-1 min-w-[100px] flex flex-col text-left">
+            <span class="text-sm md:text-base font-black text-gray-200 truncate">${engineTitle}</span>
+            <span class="text-[11px] md:text-xs text-gray-400 font-mono truncate">${engineSub}</span>
           </div>
-          ${engineBtnHTML}
+          <div class="flex items-center gap-1.5 flex-wrap flex-1 justify-end">
+            <div class="flex gap-1 flex-shrink-0">
+              ${engineTiersHTML}
+            </div>
+            ${engineBtnHTML}
+          </div>
         </div>
-      </div>
 
-      <!-- Shield Matrix -->
-      <div class="flex flex-wrap md:flex-nowrap items-center justify-between gap-1.5 py-1 w-full">
-        <div class="flex-1 min-w-[100px] flex flex-col text-left">
-          <span class="text-xs md:text-sm font-bold text-gray-200 truncate">${shieldTitle}</span>
-          <span class="text-[9px] md:text-[11px] text-gray-400 font-mono truncate">${shieldSub}</span>
-        </div>
-        <div class="flex items-center gap-1.5 flex-wrap flex-1 justify-end">
-          <div class="flex gap-1 flex-shrink-0">
-            ${shieldTiersHTML}
+        <!-- Shield Matrix -->
+        <div class="flex flex-wrap md:flex-nowrap items-center justify-between gap-1.5 py-1 w-full">
+          <div class="flex-1 min-w-[100px] flex flex-col text-left">
+            <span class="text-sm md:text-base font-black text-gray-200 truncate">${shieldTitle}</span>
+            <span class="text-[11px] md:text-xs text-gray-400 font-mono truncate">${shieldSub}</span>
           </div>
-          ${shieldBtnHTML}
+          <div class="flex items-center gap-1.5 flex-wrap flex-1 justify-end">
+            <div class="flex gap-1 flex-shrink-0">
+              ${shieldTiersHTML}
+            </div>
+            ${shieldBtnHTML}
+          </div>
         </div>
       </div>
     </div>
   `;
 
   listContainer.innerHTML = `
-    <div class="flex flex-col gap-3">
-      <div class="flex justify-between items-start gap-2">
-        <div class="flex-1 min-w-0">
-          <h4 class="text-base md:text-lg font-black text-cyan-400 uppercase tracking-wide truncate">${config.name}</h4>
-          <div class="h-10 md:h-12 overflow-y-auto mt-0.5 pr-1">
-            <p class="text-xs md:text-sm font-mono text-gray-400 uppercase leading-tight">${desc}</p>
+    <div class="flex flex-col gap-3 h-full min-h-0">
+      <div class="shrink-0 flex flex-col gap-3">
+        <div class="flex justify-between items-start gap-2">
+          <div class="flex-1 min-w-0">
+            <h4 class="text-lg md:text-xl font-black text-cyan-400 uppercase tracking-wide truncate">${config.name}</h4>
+            <div class="h-12 md:h-14 overflow-y-auto mt-0.5 pr-1">
+              <p class="text-sm md:text-base font-mono text-gray-400 uppercase leading-tight">${desc}</p>
+            </div>
+          </div>
+          <div class="flex-shrink-0">
+            ${actionButtonHTML}
           </div>
         </div>
-        <div class="flex-shrink-0">
-          ${actionButtonHTML}
-        </div>
-      </div>
 
-      <!-- Dedicated Preview Box -->
-      <div id="shop-ship-preview-container" class="flex justify-center items-center h-28 bg-black/30 border border-purple-500/20 rounded-xl mb-1 relative overflow-hidden">
-        <canvas id="shop-preview-canvas" width="120" height="120" class="block"></canvas>
-      </div>
-      
-      <div class="space-y-1.5 font-mono text-xs md:text-sm text-gray-300">
-        <div>
-          <div class="flex justify-between mb-0.5 items-center">
-            <span>${speedLabel}</span>
-            ${speedMaxTag}
-          </div>
-          <div class="w-full bg-black/50 rounded-full h-2 border border-cyan-500/20 overflow-hidden">
-            <div class="bg-cyan-500 h-full rounded-full" style="width: ${speedPct}%"></div>
-          </div>
+        <!-- Dedicated Preview Box -->
+        <div id="shop-ship-preview-container" class="flex justify-center items-center h-24 md:h-28 bg-black/30 border border-purple-500/20 rounded-xl mb-1 relative overflow-hidden">
+          <canvas id="shop-preview-canvas" width="120" height="120" class="block"></canvas>
         </div>
-        <div>
-          <div class="flex justify-between mb-0.5 items-center">
-            <span>${shieldLabel}</span>
-            ${shieldMaxTag}
+        
+        <div class="space-y-2 font-mono text-sm md:text-base text-gray-300">
+          <div>
+            <div class="flex justify-between mb-0.5 items-center">
+              <span>${speedLabel}</span>
+              ${speedMaxTag}
+            </div>
+            <div class="w-full bg-black/50 rounded-full h-3 border border-cyan-500/20 overflow-hidden">
+              <div class="bg-cyan-500 h-full rounded-full" style="width: ${speedPct}%"></div>
+            </div>
           </div>
-          <div class="w-full bg-black/50 rounded-full h-2 border border-rose-500/20 overflow-hidden">
-            <div class="bg-rose-500 h-full rounded-full" style="width: ${shieldPct}%"></div>
+          <div>
+            <div class="flex justify-between mb-0.5 items-center">
+              <span>${shieldLabel}</span>
+              ${shieldMaxTag}
+            </div>
+            <div class="w-full bg-black/50 rounded-full h-3 border border-rose-500/20 overflow-hidden">
+              <div class="bg-rose-500 h-full rounded-full" style="width: ${shieldPct}%"></div>
+            </div>
           </div>
-        </div>
-        <div>
-          <div class="flex justify-between mb-0.5 items-center flex-wrap">
-            <span>${abilityLabel}</span>
-            ${abilityMaxTag}
-          </div>
-          <div class="w-full bg-black/50 rounded-full h-2 border border-yellow-500/20 overflow-hidden">
-            <div class="bg-yellow-500 h-full rounded-full" style="width: ${abilityPct}%"></div>
+          <div>
+            <div class="flex justify-between mb-0.5 items-center flex-wrap">
+              <span>${abilityLabel}</span>
+              ${abilityMaxTag}
+            </div>
+            <div class="w-full bg-black/50 rounded-full h-3 border border-yellow-500/20 overflow-hidden">
+              <div class="bg-yellow-500 h-full rounded-full" style="width: ${abilityPct}%"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2032,10 +2055,10 @@ window.equipShip = function(shipId) {
 }
 
 // --- Ship Specific Abilities ---
-function triggerLaser() {
+function fireLaser() {
   if (equippedShip !== 'laser') return;
   if (currentState !== STATES.PLAYING) return;
-  if (laserCooldownTimer > 0) return;
+  if (!laserReady) return;
 
   const laserLane = player.targetLane;
   
@@ -2065,56 +2088,51 @@ function triggerLaser() {
   }
 
   shakeTimer = 0.2;
-  const upgrades = shipUpgrades.laser || { engine: 1, shield: 1 };
-  const baseCooldown = SHIP_CONFIGS.laser.laserCooldown;
-  const cooldownReduction = (upgrades.shield - 1) * 1.0;
-  laserCooldownTimer = Math.max(1.0, baseCooldown - cooldownReduction);
-  updateLaserHUD();
+  
+  // Muzzle flash particle effect at ship nose
+  spawnExplosion(player.x, player.y - player.jumpHeight - 30, '#f43f5e');
+
+  laserReady = false;
+  laserCooldownTimer = LASER_COOLDOWN_DURATION;
+  updateLaserUI();
 }
 
-function updateLaserHUD() {
-  const panel = document.getElementById('hud-laser-panel');
-  const bar = document.getElementById('hud-laser-bar');
-  const text = document.getElementById('hud-laser-text');
-  const mobileContainer = document.getElementById('mobile-laser-container');
+function updateLaserUI() {
+  const pad = document.getElementById('mobile-fire-pad');
+  const progress = document.getElementById('mobile-fire-pad-progress');
+  const text = document.getElementById('mobile-fire-pad-text');
 
-  if (equippedShip === 'laser') {
-    panel.classList.remove('hidden');
-    if (currentState === STATES.PLAYING) {
-      mobileContainer.classList.remove('hidden');
-      panel.style.bottom = '96px';
-    } else {
-      mobileContainer.classList.add('hidden');
-      panel.style.bottom = '24px';
-    }
+  if (!pad || !progress || !text) return;
 
-    if (laserCooldownTimer > 0) {
-      const upgrades = shipUpgrades.laser || { engine: 1, shield: 1 };
-      const baseCooldown = SHIP_CONFIGS.laser.laserCooldown;
-      const cooldownReduction = (upgrades.shield - 1) * 1.0;
-      const maxCooldown = Math.max(1.0, baseCooldown - cooldownReduction);
-      const pct = ((maxCooldown - laserCooldownTimer) / maxCooldown) * 100;
-      bar.style.width = `${pct}%`;
-      text.innerText = `${laserCooldownTimer.toFixed(1)}s`;
-      text.className = 'text-[10px] text-rose-400 font-mono font-bold animate-pulse';
-    } else {
-      bar.style.width = '100%';
-      text.innerText = 'READY';
-      text.className = 'text-[10px] text-white font-mono font-bold';
-    }
+  if (currentState !== STATES.PLAYING || equippedShip !== 'laser') {
+    pad.classList.add('hidden');
+    pad.classList.remove('animate-pad-pulse');
+    return;
+  }
+
+  pad.classList.remove('hidden');
+
+  if (!laserReady) {
+    const pct = ((LASER_COOLDOWN_DURATION - laserCooldownTimer) / LASER_COOLDOWN_DURATION) * 100;
+    progress.style.width = `${pct}%`;
+    text.innerText = `${laserCooldownTimer.toFixed(1)}s`;
+    pad.classList.remove('animate-pad-pulse');
+    text.className = 'relative z-10 font-mono text-sm font-bold text-rose-400/60 tracking-wider';
   } else {
-    panel.classList.add('hidden');
-    mobileContainer.classList.add('hidden');
+    progress.style.width = '100%';
+    text.innerText = 'FIRE';
+    pad.classList.add('animate-pad-pulse');
+    text.className = 'relative z-10 font-mono text-base font-black text-white tracking-widest animate-pulse';
   }
 }
 
 // --- Click & Touch Event Listeners ---
-document.getElementById('btn-open-shop-menu').addEventListener('click', () => {
+document.getElementById('btn-hangar-shop').addEventListener('click', () => {
   openHangarShop('menu');
 });
 
 document.getElementById('btn-open-shop-gameover').addEventListener('click', () => {
-  openShopModal('gameover');
+  openHangarShop('gameover');
 });
 
 document.getElementById('btn-close-shop').addEventListener('click', () => {
@@ -2152,10 +2170,13 @@ if (shopSwipeContainer) {
   }, { passive: true });
 }
 
-document.getElementById('btn-fire-laser-mobile').addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  triggerLaser();
-});
+const firePad = document.getElementById('mobile-fire-pad');
+if (firePad) {
+  firePad.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    fireLaser();
+  });
+}
 
 // --- Initialization Runs ---
 initStarfield();
